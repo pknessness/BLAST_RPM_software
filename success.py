@@ -2,6 +2,8 @@ import math
 import pygame
 
 t = 0
+timeFrame = 10
+manualStop = 0.2
 
 points = []
 
@@ -11,7 +13,6 @@ def generateAngle():
     #y = math.sin(3*t + 19) * 360 + 180
     z = math.sin(t/7 + 11) * 360 + 180
     y = 0
-    t += .01
     result = (x, y, z)
     return result
 
@@ -70,6 +71,11 @@ class Scene:
         generatedAngles = generateAngle()
         for i in range(3):
             transformed_vertices = rotate_vertices(transformed_vertices, generatedAngles[i], axis_list[i])
+        points.append([])
+        for i in range(len(transformed_vertices)):
+            #print(f"points{points} len{len(points) - 1} i{i}")
+            adsi = tuple(transformed_vertices[i])
+            points[len(points)-1].append(adsi)
         transformed_vertices = project_vertices(transformed_vertices, width, height, self.fov, self.distance)
         return transformed_vertices
 
@@ -78,11 +84,6 @@ class Scene:
         polygons = []
         for mesh in self.meshes:
             transformed_vertices = self.transform_vertices(mesh.get_vertices(), *surface.get_size())
-            points.append([])
-            for i in range(len(transformed_vertices)):
-                #print(f"points{points} len{len(points) - 1} i{i}")
-                adsi = tuple(transformed_vertices[i])
-                points[len(points)-1].append(adsi)
             avg_z = mesh.calculate_average_z(transformed_vertices)
             for z in avg_z:
             #for z in sorted(avg_z, key=lambda x: x[1], reverse=True):
@@ -116,7 +117,7 @@ clock = pygame.time.Clock()
 
 run = True
 while run:
-    clock.tick(60)
+    clock.tick(timeFrame)
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             run = False
@@ -124,7 +125,42 @@ while run:
     window.fill((255, 255, 255))
     scene.draw(window)
     scene.euler_angles[1] += 1
+    t += 1.0/timeFrame
+    if(manualStop != -1 and t > manualStop):
+        break
     pygame.display.flip()
 
+print("--POINTS--\n")
 print(points)
+pointsVelocity = []
+for i in range(len(points) - 1):
+    pointsVelocity.append([])
+    for j in range(8):
+        veloX = points[i + 1][j][0] - points[i][j][0]
+        veloY = points[i + 1][j][1] - points[i][j][1]
+        veloZ = points[i + 1][j][2] - points[i][j][2]
+        pointsVelocity[i].append((veloX,veloY,veloZ))
+        #pointsVelocity[i][j] = points[i + 1][j] - points[i][j]
+
+print("\n--POINTS VELO--\n")
+#print(pointsVelocity)
+pointsAcceleration = []
+for i in range(len(pointsVelocity) - 1):
+    pointsAcceleration.append([])
+    for j in range(8):
+        accelX = pointsVelocity[i + 1][j][0] - pointsVelocity[i][j][0]
+        accelY = pointsVelocity[i + 1][j][1] - pointsVelocity[i][j][1] + 9.81
+        accelZ = pointsVelocity[i + 1][j][2] - pointsVelocity[i][j][2]
+        pointsAcceleration[i].append((accelX,accelY,accelZ))
+        
+print("\n--POINTS ACCEL--\n")
+#print(pointsAcceleration)
+
+netAccel = [0,0,0,0,0,0,0,0]
+for j in range(8):
+    for i in range(len(pointsAcceleration)):
+        netAccel[j] += math.sqrt((pointsAcceleration[i][j][0] ** 2) + (pointsAcceleration[i][j][1] ** 2) + (pointsAcceleration[i][j][2] ** 2))
+     
+print("\n--NET ACCEL--\n")   
+print(netAccel)
 pygame.quit()

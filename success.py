@@ -1,9 +1,8 @@
-import math
-import pygame
+import math, pygame, copy
 
 t = 0
 timeFrame = 10
-manualStop = 0.2
+manualStop = -1
 
 points = []
 
@@ -34,9 +33,10 @@ def project_vertices(vertices, w, h, fov, distance):
 
 class Mesh():
 
-    def __init__(self, vertices, faces):
+    def __init__(self, vertices, faces, modifiableVector = False):
         self.__vertices = [pygame.math.Vector3(v) for v in vertices]
         self.__faces = faces
+        self.modVector = modifiableVector
 
     def rotate(self, angle, axis):
         self.__vertices = rotate_vertices(self.__vertices, angle, axis)
@@ -57,20 +57,22 @@ class Mesh():
         return [(vertices[i].x, vertices[i].y) for i in [*face, face[0]]]
        
 class Scene:
-    def __init__(self, mehses, fov, distance):
-        self.meshes = mehses
+    def __init__(self, meshes, fov, distance):
+        self.meshes = meshes
         self.fov = fov
         self.distance = distance 
         self.euler_angles = [0, 0, 0]
 
-    def transform_vertices(self, vertices, width, height):
+    def transform_vertices(self, vertices, width, height, rotate = True):
         transformed_vertices = vertices
         axis_list = [(1, 0, 0), (0, 1, 0), (0, 0, 1)]
         # for angle, axis in reversed(list(zip(list(self.euler_angles), axis_list))):
         #     transformed_vertices = rotate_vertices(transformed_vertices, angle, axis)
         generatedAngles = generateAngle()
         for i in range(3):
-            transformed_vertices = rotate_vertices(transformed_vertices, generatedAngles[i], axis_list[i])
+            if(rotate == True):
+                transformed_vertices = rotate_vertices(transformed_vertices, generatedAngles[i], axis_list[i])
+                print(f"Gangle:{generatedAngles[j]} Gaxis:{axis_list[j]}")
         points.append([])
         for i in range(len(transformed_vertices)):
             #print(f"points{points} len{len(points) - 1} i{i}")
@@ -83,6 +85,8 @@ class Scene:
         
         polygons = []
         for mesh in self.meshes:
+            
+            #if(mesh.modVector == False):
             transformed_vertices = self.transform_vertices(mesh.get_vertices(), *surface.get_size())
             avg_z = mesh.calculate_average_z(transformed_vertices)
             for z in avg_z:
@@ -97,8 +101,13 @@ class Scene:
             pygame.draw.polygon(surface, (0, 0, 0), poly[0], 3)
         
 
-vertices = [(-1,-1,1), (1,-1,1), (1,1,1), (-1,1,1), (-1,-1,-1), (1,-1,-1), (1,1,-1), (-1,1,-1)]
+vertices = [(-1,-1,1), (1,-1,1), (1,1,1), (-1,1,1), (-1,-1,-1), (1,-1,-1), (1,1,-1), (-1,1,-1), (2, 2, 2)]
 faces = [(0,1,2,3), (1,5,6,2), (5,4,7,6), (4,0,3,7), (3,2,6,7), (1,0,4,5)]
+
+forceVectorVertices =   [(-1,-1,1), (1,-1,1), (1,1,1), (-1,1,1), (-1,-1,-1), (1,-1,-1), (1,1,-1), (-1,1,-1), (0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0)]
+forceVectorLines = [(0,8),(1,9),(2,10),(3,11),(4,12),(5,13),(6,14),(7,15)]
+
+axes = [(1,0,0),(0,1,0),(0,0,1)]
 
 #cube_origins = [(-1, -1, 0), (0, -1, 0), (1, -1, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0), (-1, 1, 0), (-1, 0, 0)]
 cube_origins = [(0,0,0)]
@@ -107,7 +116,16 @@ for origin in cube_origins:
     cube = Mesh(vertices, faces)
     cube.scale((0.5, 0.5, 0.5))
     cube.translate(origin)
+    
+    for i in range(len(forceVectorLines)):
+        print(i)
+        forceVectors = Mesh(forceVectorVertices, [forceVectorLines[i]], True)
+        #forceVectors.scale((0.5, 0.5, 0.5))
+        forceVectors.translate(origin)
+        meshes.append(forceVectors)
+    
     meshes.append(cube)
+    
 
 scene = Scene(meshes, 90, 5)
 
@@ -123,7 +141,18 @@ while run:
             run = False
 
     window.fill((255, 255, 255))
+    sceneSave = copy.deepcopy(scene.meshes)
+    for i in scene.meshes:
+        if (i.modVector == True):
+            # print(i)
+            angles = generateAngle()
+            for j in range(3):
+                i.rotate(-angles[j] * 0, axes[j])
+                print(f"angle:{-angles[j]} axis:{axes[j]}")
+            # i.vertices[]
     scene.draw(window)
+    scene.meshes = sceneSave
+    
     scene.euler_angles[1] += 1
     t += 1.0/timeFrame
     if(manualStop != -1 and t > manualStop):
@@ -131,7 +160,7 @@ while run:
     pygame.display.flip()
 
 print("--POINTS--\n")
-print(points)
+#print(points)
 pointsVelocity = []
 for i in range(len(points) - 1):
     pointsVelocity.append([])
